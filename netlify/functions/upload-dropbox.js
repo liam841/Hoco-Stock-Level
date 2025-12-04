@@ -1,6 +1,8 @@
 // Netlify Function: upload-dropbox.js
 // Handles upload of processed CSV to Dropbox using Dropbox HTTP API
 
+const nodemailer = require('nodemailer');
+
 exports.handler = async (event) => {
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
@@ -97,6 +99,16 @@ exports.handler = async (event) => {
 
     const result = await uploadResponse.json();
 
+    // Try to send notification email (do not fail the upload if email fails)
+    try {
+      await sendNotificationEmail({
+        fileName,
+        dropboxPath,
+      });
+    } catch (notifyError) {
+      console.error('Failed to send notification email:', notifyError);
+    }
+
     return {
       statusCode: 200,
       headers: {
@@ -127,3 +139,58 @@ exports.handler = async (event) => {
     };
   }
 };
+
+/**
+ * Send notification email when a file is uploaded.
+ *
+ * This uses Gmail SMTP via Nodemailer.
+ * Recommended: create a Gmail App Password and use that, not your real password.
+ *
+ * Required env vars (set in Netlify):
+ * - SMTP_HOST      (e.g. smtp.gmail.com)
+ * - SMTP_PORT      (e.g. 587)
+ * - SMTP_USER      (your Gmail address)
+ * - SMTP_PASS      (Gmail App Password)
+ * - EMAIL_TO       (your email address)
+ * - EMAIL_FROM     (sender address – usually same as SMTP_USER)
+ */
+async function sendNotificationEmail({ fileName, dropboxPath }) {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const to = process.env.EMAIL_TO;
+  const from = process.env.EMAIL_FROM || user;
+
+  if (!host || !port || !user || !pass || !to || !from) {
+    // Email not configured; skip silently
+    console.warn(
+      'Email notification not configured (missing SMTP_* or EMAIL_* env vars).',
+    );
+    return;
+  }
+
+  const subject = 'New TestStock CSV uploaded';
+  const text =
+    `A new TestStock CSV file has been uploaded.\n\n` +
+    `File name: ${fileName}\n` +
+    `Dropbox path: ${dropboxPath}\n` +
+    `Time: ${new Date().toISOString()}\n`;
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: Number(port),
+    secure: Number(port) === 465, // true for 465, false for 587
+    auth: {
+      user,
+      pass,
+    },
+  });
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject,
+    text,
+  });
+}

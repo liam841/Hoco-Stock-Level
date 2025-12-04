@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "echo 'For development, use a local server like: python -m http.server 8000'"
   },
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  },
   "keywords": [
     "csv",
     "converter",
