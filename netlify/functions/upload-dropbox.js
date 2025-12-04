@@ -59,13 +59,11 @@ exports.handler = async (event) => {
       };
     }
 
-    // Normalise original name: keep safe chars, strip existing extension
-    let safeName =
-      (originalName && originalName.replace(/[^a-zA-Z0-9_.-]/g, '_')) ||
-      'TestStock';
-    // Remove any existing extension, then force .csv
-    safeName = safeName.replace(/\.[^/.]+$/, '');
-    const fileName = `${safeName}.csv`;
+    // Always use a fixed filename in Dropbox so each upload replaces the last one.
+    // Your Dropbox folder shows: Dropbox\Apps\Hoco Stock Level\TestStock\TestStockCSV.csv
+    // For an App Folder app named \"Hoco Stock Level\", the API path is relative to that:
+    //   /TestStock/TestStockCSV.csv
+    const fileName = 'TestStockCSV.csv';
     const dropboxPath = `/TestStock/${fileName}`;
 
     const fileBuffer = Buffer.from(csvContent, 'utf8');
