@@ -475,7 +475,10 @@
                 const result = await response.json().catch(() => null);
                 
                 if (!response.ok) {
-                    const message = (result && (result.error || result.message)) || response.statusText || 'Unknown error';
+                    const message =
+                        (result && (result.message || result.error)) ||
+                        response.statusText ||
+                        'Unknown error';
                     throw new Error(`Upload failed: ${message}`);
                 }
                 
