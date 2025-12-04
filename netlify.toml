@@ -1,9 +1,9 @@
 # Netlify Configuration File
-# Static HTML site - no build process required
+# Static HTML site - no build process or dependencies required
 
 [build]
   publish = "."
-  # No build command = Netlify will skip npm install and just publish static files
+  # No build command = Netlify will just publish static files
 
 # Redirect rules for SPA behavior (all routes to index.html)
 [[redirects]]
@@ -11,5 +11,6 @@
   to = "/index.html"
   status = 200
 
-# Note: package.json exists for future serverless functions but is not used during static site build
+# Note: Dependencies are only needed for serverless functions
+# When you add Netlify Functions, they'll have their own package.json in netlify/functions/
 
