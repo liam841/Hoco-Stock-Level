@@ -5,7 +5,18 @@
   publish = "."
   # No build command = Netlify will just publish static files
 
-# Redirect rules for SPA behavior (all routes to index.html)
+# Ensure API / functions requests are NOT caught by the SPA redirect
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
+# SPA fallback – catch everything else and send to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
