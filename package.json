@@ -1,0 +1,22 @@
+{
+  "name": "teststock-csv-converter",
+  "version": "1.0.0",
+  "description": "CSV converter with automatic Dropbox upload",
+  "main": "index.html",
+  "scripts": {
+    "dev": "echo 'For development, use a local server like: python -m http.server 8000'"
+  },
+  "dependencies": {
+    "dropbox": "^10.34.0",
+    "lambda-multipart-parser": "^2.0.1"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "csv",
+    "converter",
+    "dropbox"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

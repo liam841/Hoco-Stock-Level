@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestStock CSV Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid #e1e8ed;
+        }
+        
+        h1 {
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 2em;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            color: #4a5568;
+            margin-bottom: 32px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 6px;
+            padding: 48px 20px;
+            margin-bottom: 24px;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: #f7fafc;
+        }
+        
+        .upload-area:hover {
+            background: #edf2f7;
+            border-color: #a0aec0;
+        }
+        
+        .upload-area.dragover {
+            background: #e2e8f0;
+            border-color: #4299e1;
+            border-style: solid;
+        }
+        
+        .upload-icon {
+            display: none;
+        }
+        
+        .upload-text {
+            color: #2d3748;
+            font-size: 1em;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .upload-hint {
+            color: #718096;
+            font-size: 0.875em;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .file-info {
+            margin-top: 20px;
+            padding: 16px 20px;
+            background: #f7fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            display: none;
+            text-align: left;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 6px;
+            font-size: 0.95em;
+        }
+        
+        .file-size {
+            color: #718096;
+            font-size: 0.875em;
+        }
+        
+        .action-buttons {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .action-buttons.show {
+            display: block;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9375em;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin: 8px;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: #2d3748;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1a202c;
+        }
+        
+        .btn-primary:active {
+            background: #171923;
+        }
+        
+        .btn-secondary {
+            background: #edf2f7;
+            color: #2d3748;
+            border: 1px solid #cbd5e0;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        
+        .btn-secondary:active {
+            background: #cbd5e0;
+        }
+        
+        .preview-section {
+            margin-top: 30px;
+            text-align: left;
+            display: none;
+        }
+        
+        .preview-section.show {
+            display: block;
+        }
+        
+        .preview-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 0.9375em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .csv-preview {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 16px;
+            max-height: 300px;
+            overflow: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8125em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #2d3748;
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            display: none;
+            font-size: 0.875em;
+        }
+        
+        .status-message.show {
+            display: block;
+        }
+        
+        .status-message.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .status-message.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        
+        .column-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            display: none;
+            text-align: left;
+        }
+        
+        .column-info.show {
+            display: block;
+        }
+        
+        .column-info h3 {
+            margin-bottom: 12px;
+            color: #2d3748;
+            font-size: 1em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .column-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .column-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8125em;
+            font-weight: 500;
+        }
+        
+        .column-tag.removed {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .column-tag.kept {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .upload-progress {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #4299e1;
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .progress-text {
+            text-align: center;
+            color: #4a5568;
+            font-size: 0.875em;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TestStock CSV Converter</h1>
+        <p class="subtitle">Upload your file to automatically process and save it<br><small style="font-size: 0.8125em; color: #718096;">Files are processed and uploaded automatically. No data is displayed.</small></p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-text">Click to upload or drag and drop</div>
+            <div class="upload-hint">Upload your TestStockCSV file</div>
+            <input type="file" id="fileInput" accept="*/*">
+        </div>
+        
+        <div class="file-info" id="fileInfo">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-size" id="fileSize"></div>
+        </div>
+        
+        <div class="status-message" id="statusMessage"></div>
+        
+        <div class="upload-progress" id="uploadProgress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Processing file...</div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const statusMessage = document.getElementById('statusMessage');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        // Configuration: Set your backend API endpoint here
+        // This should point to your serverless function (Netlify, Vercel, etc.)
+        // SECURITY NOTE: This is a public value (API endpoint URL). 
+        // Actual Dropbox tokens are stored securely in backend environment variables.
+        // Examples:
+        //   Netlify: '/.netlify/functions/upload-dropbox'
+        //   Vercel: '/api/upload-dropbox'
+        //   Custom: 'https://your-api-domain.com/upload'
+        const DROPBOX_UPLOAD_API = '/api/upload-dropbox'; // Update this with your actual API endpoint
+        
+        let currentFileContent = null;
+        let processedCSV = null;
+        
+        // Columns to remove
+        const columnsToRemove = ['sales_price', 'Item_Vendor_No', 'ean', 'ad_id'];
+        
+        // Column rename mapping: oldName -> newName
+        const columnRenames = {
+            'sku': 'SKU',
+            'free_stock': 'Stock Level'
+        };
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            // Show file info
+            fileName.textContent = file.name;
+            fileSize.textContent = `Size: ${formatFileSize(file.size)}`;
+            fileInfo.classList.add('show');
+            
+            // Hide status and show progress
+            statusMessage.classList.remove('show');
+            uploadProgress.style.display = 'block';
+            updateProgress(10, 'Reading file...');
+            
+            // Disable upload area
+            uploadArea.style.pointerEvents = 'none';
+            uploadArea.style.opacity = '0.6';
+            
+            // Read file
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    currentFileContent = e.target.result;
+                    updateProgress(30, 'Processing file...');
+                    
+                    // Process CSV: remove specified columns
+                    const result = processCSV(currentFileContent);
+                    processedCSV = result.csv;
+                    
+                    updateProgress(60, 'Preparing upload...');
+                    
+                    // Automatically upload to Dropbox
+                    uploadToDropbox(processedCSV, file.name);
+                } catch (error) {
+                    uploadProgress.style.display = 'none';
+                    showStatus('Error processing file: ' + error.message, 'error');
+                    resetUpload();
+                }
+            };
+            
+            reader.onerror = function() {
+                uploadProgress.style.display = 'none';
+                showStatus('Error reading file. Please try again.', 'error');
+                resetUpload();
+            };
+            
+            // Read as text
+            reader.readAsText(file);
+        }
+        
+        function updateProgress(percent, text) {
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+        
+        function resetUpload() {
+            uploadArea.style.pointerEvents = 'auto';
+            uploadArea.style.opacity = '1';
+            fileInput.value = '';
+        }
+        
+        async function uploadToDropbox(csvContent, originalFileName) {
+            try {
+                updateProgress(70, 'Uploading to Dropbox...');
+                
+                // Create a blob from CSV content
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const formData = new FormData();
+                formData.append('file', blob, 'TestStock.csv');
+                formData.append('originalName', originalFileName);
+                
+                // Upload to backend API which will handle Dropbox upload
+                const response = await fetch(DROPBOX_UPLOAD_API, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                updateProgress(100, 'Upload complete!');
+                
+                setTimeout(() => {
+                    uploadProgress.style.display = 'none';
+                    showStatus('File processed and uploaded successfully!', 'success');
+                    resetUpload();
+                    fileInfo.classList.remove('show');
+                }, 1500);
+                
+            } catch (error) {
+                uploadProgress.style.display = 'none';
+                showStatus('Error uploading file: ' + error.message + '. Please check your API endpoint configuration.', 'error');
+                resetUpload();
+            }
+        }
+        
+        // Auto-detect CSV delimiter
+        function detectDelimiter(line) {
+            const delimiters = [';', ',', '\t', '|'];
+            let maxCount = 0;
+            let detectedDelimiter = ',';
+            
+            for (const delim of delimiters) {
+                // Count occurrences, but ignore those inside quotes
+                let count = 0;
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    if (line[i] === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (line[i] === delim && !inQuotes) {
+                        count++;
+                    }
+                }
+                if (count > maxCount) {
+                    maxCount = count;
+                    detectedDelimiter = delim;
+                }
+            }
+            
+            return detectedDelimiter;
+        }
+        
+        // CSV parsing function that handles quoted values and custom delimiters
+        function parseCSVLine(line, delimiter = ',') {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        // Escaped quote
+                        current += '"';
+                        i++; // Skip next quote
+                    } else {
+                        // Toggle quote state
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === delimiter && !inQuotes) {
+                    // End of field
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            // Add last field
+            result.push(current);
+            
+            return result;
+        }
+        
+        // Convert array back to CSV line (always use comma for output)
+        function arrayToCSVLine(array) {
+            return array.map(field => {
+                // If field contains comma, quote, or newline, wrap in quotes
+                if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+                    return '"' + field.replace(/"/g, '""') + '"';
+                }
+                return field;
+            }).join(',');
+        }
+        
+        // Process CSV: remove specified columns
+        function processCSV(csvContent) {
+            const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            
+            if (lines.length === 0) {
+                throw new Error('CSV file is empty');
+            }
+            
+            // Detect delimiter from first line
+            const delimiter = detectDelimiter(lines[0]);
+            
+            // Parse header
+            const headers = parseCSVLine(lines[0], delimiter);
+            
+            // Find indices of columns to remove (case-insensitive, trim whitespace)
+            const indicesToRemove = [];
+            const removedColumns = [];
+            columnsToRemove.forEach(colToRemove => {
+                const index = headers.findIndex(h => {
+                    const trimmed = h.trim();
+                    return trimmed.toLowerCase() === colToRemove.toLowerCase() || 
+                           trimmed === colToRemove;
+                });
+                if (index !== -1) {
+                    indicesToRemove.push(index);
+                    removedColumns.push(headers[index].trim());
+                }
+            });
+            
+            // Sort indices in descending order for safe removal
+            indicesToRemove.sort((a, b) => b - a);
+            
+            // Remove columns from header
+            let newHeaders = headers.filter((_, index) => !indicesToRemove.includes(index));
+            
+            // Rename columns
+            const renamedColumns = [];
+            newHeaders = newHeaders.map(header => {
+                const trimmed = header.trim();
+                const lowerKey = Object.keys(columnRenames).find(key => 
+                    key.toLowerCase() === trimmed.toLowerCase() || key === trimmed
+                );
+                if (lowerKey) {
+                    const oldName = trimmed;
+                    const newName = columnRenames[lowerKey];
+                    if (oldName !== newName) {
+                        renamedColumns.push({ old: oldName, new: newName });
+                    }
+                    return newName;
+                }
+                return trimmed;
+            });
+            
+            // Find the index of "Stock Level" column after renaming
+            const stockLevelIndex = newHeaders.findIndex(h => 
+                h.trim().toLowerCase() === 'stock level' || h.trim() === 'Stock Level'
+            );
+            
+            // Process data rows
+            const newLines = [arrayToCSVLine(newHeaders)];
+            let replacedCount = 0;
+            
+            for (let i = 1; i < lines.length; i++) {
+                const row = parseCSVLine(lines[i], delimiter);
+                // Remove columns at specified indices
+                let newRow = row.filter((_, index) => !indicesToRemove.includes(index));
+                
+                // Replace values ending with "++" in Stock Level column with "10"
+                if (stockLevelIndex !== -1 && newRow[stockLevelIndex] !== undefined) {
+                    const stockLevelValue = newRow[stockLevelIndex].trim();
+                    if (stockLevelValue.endsWith('++')) {
+                        newRow[stockLevelIndex] = '10';
+                        replacedCount++;
+                    }
+                }
+                
+                newLines.push(arrayToCSVLine(newRow));
+            }
+            
+            return {
+                csv: newLines.join('\n'),
+                originalHeaders: headers.map(h => h.trim()),
+                keptHeaders: newHeaders,
+                removedHeaders: removedColumns,
+                renamedHeaders: renamedColumns,
+                stockLevelReplacements: replacedCount,
+                delimiter: delimiter
+            };
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message show ' + type;
+            setTimeout(() => {
+                statusMessage.classList.remove('show');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
