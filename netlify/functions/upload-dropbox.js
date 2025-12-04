@@ -57,10 +57,13 @@ exports.handler = async (event) => {
       };
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const safeName =
-      originalName.replace(/[^a-zA-Z0-9_.-]/g, '_') || 'TestStock.csv';
-    const fileName = `TestStock_${timestamp}_${safeName}`;
+    // Normalise original name: keep safe chars, strip existing extension
+    let safeName =
+      (originalName && originalName.replace(/[^a-zA-Z0-9_.-]/g, '_')) ||
+      'TestStock';
+    // Remove any existing extension, then force .csv
+    safeName = safeName.replace(/\.[^/.]+$/, '');
+    const fileName = `${safeName}.csv`;
     const dropboxPath = `/TestStock/${fileName}`;
 
     const fileBuffer = Buffer.from(csvContent, 'utf8');
@@ -74,8 +77,9 @@ exports.handler = async (event) => {
           'Content-Type': 'application/octet-stream',
           'Dropbox-API-Arg': JSON.stringify({
             path: dropboxPath,
-            mode: 'add',
-            autorename: true,
+            // Overwrite the same file on each upload
+            mode: 'overwrite',
+            autorename: false,
             mute: false,
             strict_conflict: false,
           }),
