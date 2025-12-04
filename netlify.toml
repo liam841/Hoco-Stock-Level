@@ -1,0 +1,20 @@
+# Netlify Configuration File
+[build]
+  # Since this is a static site, no build command needed
+  publish = "."
+  # Skip npm install for static site (dependencies only needed for serverless functions)
+  command = "echo 'Static site - no build required'"
+
+[build.environment]
+  # Pin Node.js version to 18 LTS for compatibility
+  NODE_VERSION = "18"
+
+# Redirect rules for SPA behavior (all routes to index.html)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Note: Serverless functions (if added) should be in netlify/functions/
+# and will use Node 18 as specified in build.environment.NODE_VERSION
+
