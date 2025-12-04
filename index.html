@@ -352,7 +352,7 @@
         //   Netlify: '/.netlify/functions/upload-dropbox'
         //   Vercel: '/api/upload-dropbox'
         //   Custom: 'https://your-api-domain.com/upload'
-        const DROPBOX_UPLOAD_API = '/api/upload-dropbox'; // Update this with your actual API endpoint
+        const DROPBOX_UPLOAD_API = '/.netlify/functions/upload-dropbox'; // Netlify Functions endpoint
         
         let currentFileContent = null;
         let processedCSV = null;
@@ -460,23 +460,24 @@
             try {
                 updateProgress(70, 'Uploading to Dropbox...');
                 
-                // Create a blob from CSV content
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const formData = new FormData();
-                formData.append('file', blob, 'TestStock.csv');
-                formData.append('originalName', originalFileName);
-                
                 // Upload to backend API which will handle Dropbox upload
                 const response = await fetch(DROPBOX_UPLOAD_API, {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        csv: csvContent,
+                        originalName: originalFileName
+                    })
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.statusText}`);
-                }
+                const result = await response.json().catch(() => null);
                 
-                const result = await response.json();
+                if (!response.ok) {
+                    const message = (result && (result.error || result.message)) || response.statusText || 'Unknown error';
+                    throw new Error(`Upload failed: ${message}`);
+                }
                 
                 updateProgress(100, 'Upload complete!');
                 
@@ -489,7 +490,7 @@
                 
             } catch (error) {
                 uploadProgress.style.display = 'none';
-                showStatus('Error uploading file: ' + error.message + '. Please check your API endpoint configuration.', 'error');
+                showStatus('Error uploading file: ' + error.message, 'error');
                 resetUpload();
             }
         }
