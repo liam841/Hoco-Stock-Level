@@ -3,7 +3,8 @@
 
 [build]
   publish = "."
-  # No build command = Netlify will just publish static files
+  command = "npm install"
+  # Install dependencies for Netlify Functions
 
 # Ensure API / functions requests are NOT caught by the SPA redirect
 [[redirects]]

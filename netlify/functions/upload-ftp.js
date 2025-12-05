@@ -1,8 +1,14 @@
 // Netlify Function: upload-ftp.js
 // Handles upload of processed CSV to FileZilla Server via FTP/SFTP
 
-const Client = require('ssh2-sftp-client');
-const nodemailer = require('nodemailer');
+let Client, nodemailer;
+try {
+  Client = require('ssh2-sftp-client');
+  nodemailer = require('nodemailer');
+} catch (requireError) {
+  console.error('Failed to load required modules:', requireError);
+  throw new Error('Missing required dependencies. Please ensure ssh2-sftp-client and nodemailer are installed.');
+}
 
 exports.handler = async (event) => {
   // Handle CORS preflight
@@ -57,11 +63,13 @@ exports.handler = async (event) => {
 
     // Get FTP/SFTP configuration from environment variables
     const ftpHost = process.env.FTP_HOST;
-    const ftpPort = process.env.FTP_PORT || 22; // Default SFTP port
+    const ftpPort = process.env.FTP_PORT || 21; // Default FTP port
     const ftpUser = process.env.FTP_USER;
     const ftpPassword = process.env.FTP_PASSWORD;
     const ftpRemotePath = process.env.FTP_REMOTE_PATH || '/';
-    const ftpProtocol = process.env.FTP_PROTOCOL || 'sftp'; // 'sftp' or 'ftp'
+    // Auto-detect protocol based on port: 21 = FTP, 22 = SFTP
+    const portNum = Number(ftpPort);
+    const ftpProtocol = process.env.FTP_PROTOCOL || (portNum === 22 ? 'sftp' : 'ftp');
 
     if (!ftpHost || !ftpUser || !ftpPassword) {
       throw new Error('FTP configuration incomplete. Check FTP_HOST, FTP_USER, and FTP_PASSWORD environment variables.');
@@ -129,7 +137,14 @@ exports.handler = async (event) => {
 async function uploadToFTP({ host, port, username, password, protocol, remotePath, fileContent }) {
   if (protocol === 'sftp') {
     // Use SFTP (more secure)
+    if (!Client) {
+      throw new Error('SFTP client library not loaded. Please ensure ssh2-sftp-client is installed.');
+    }
     const sftp = new Client();
+    
+    if (!sftp) {
+      throw new Error('Failed to initialize SFTP client.');
+    }
     
     try {
       await sftp.connect({
@@ -140,9 +155,17 @@ async function uploadToFTP({ host, port, username, password, protocol, remotePat
       });
 
       // Ensure remote directory exists
-      const remoteDir = remotePath.substring(0, remotePath.lastIndexOf('/'));
-      if (remoteDir) {
-        await sftp.mkdir(remoteDir, true); // true = recursive
+      const lastSlashIndex = remotePath.lastIndexOf('/');
+      if (lastSlashIndex > 0) {
+        const remoteDir = remotePath.substring(0, lastSlashIndex);
+        try {
+          await sftp.mkdir(remoteDir, true); // true = recursive
+        } catch (mkdirError) {
+          // Directory might already exist, that's okay
+          if (!mkdirError.message || !mkdirError.message.includes('already exists')) {
+            throw mkdirError;
+          }
+        }
       }
 
       // Upload file (will overwrite if exists)
@@ -151,13 +174,33 @@ async function uploadToFTP({ host, port, username, password, protocol, remotePat
       
       await sftp.end();
     } catch (error) {
-      await sftp.end().catch(() => {}); // Try to close connection
+      // Try to close connection, but don't fail if it doesn't work
+      try {
+        if (sftp && typeof sftp.end === 'function') {
+          await sftp.end();
+        }
+      } catch (closeError) {
+        // Ignore close errors
+      }
       throw error;
     }
   } else {
     // Use FTP (less secure, but supported)
-    const { Client: FTPClient } = require('basic-ftp');
+    let FTPClient;
+    try {
+      const ftpModule = require('basic-ftp');
+      FTPClient = ftpModule.Client;
+      if (!FTPClient) {
+        throw new Error('basic-ftp Client not found in module');
+      }
+    } catch (requireError) {
+      throw new Error(`Failed to load FTP library: ${requireError.message}`);
+    }
+    
     const ftpClient = new FTPClient();
+    if (!ftpClient) {
+      throw new Error('Failed to initialize FTP client.');
+    }
     
     try {
       await ftpClient.access({
@@ -168,9 +211,17 @@ async function uploadToFTP({ host, port, username, password, protocol, remotePat
       });
 
       // Ensure remote directory exists
-      const remoteDir = remotePath.substring(0, remotePath.lastIndexOf('/'));
-      if (remoteDir && remoteDir !== '/') {
-        await ftpClient.ensureDir(remoteDir);
+      const lastSlashIndex = remotePath.lastIndexOf('/');
+      if (lastSlashIndex > 0) {
+        const remoteDir = remotePath.substring(0, lastSlashIndex);
+        try {
+          await ftpClient.ensureDir(remoteDir);
+        } catch (mkdirError) {
+          // Directory might already exist, that's okay
+          if (!mkdirError.message || !mkdirError.message.includes('already exists')) {
+            throw mkdirError;
+          }
+        }
       }
 
       // Upload file (will overwrite if exists)
@@ -179,9 +230,16 @@ async function uploadToFTP({ host, port, username, password, protocol, remotePat
       const stream = Readable.from(fileBuffer);
       await ftpClient.uploadFrom(stream, remotePath);
       
-      await ftpClient.close();
+      ftpClient.close();
     } catch (error) {
-      await ftpClient.close().catch(() => {}); // Try to close connection
+      // Try to close connection, but don't fail if it doesn't work
+      try {
+        if (ftpClient && typeof ftpClient.close === 'function') {
+          ftpClient.close();
+        }
+      } catch (closeError) {
+        // Ignore close errors
+      }
       throw error;
     }
   }
