@@ -28,10 +28,8 @@ exports.handler = async (event) => {
   }
 
   try {
-    const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
-    if (!DROPBOX_ACCESS_TOKEN) {
-      throw new Error('DROPBOX_ACCESS_TOKEN environment variable is not set');
-    }
+    // Obtain a short-lived access token (prefer refresh token flow; fall back to static token)
+    const DROPBOX_ACCESS_TOKEN = await getDropboxAccessToken();
 
     // Parse JSON body (Netlify may send base64-encoded body)
     const isBase64 = event.isBase64Encoded;
@@ -191,4 +189,51 @@ async function sendNotificationEmail({ fileName, dropboxPath }) {
     subject,
     text,
   });
+}
+
+/**
+ * Get a Dropbox short-lived access token.
+ * - If a refresh token + app key/secret are provided, exchange for a fresh access token.
+ * - Otherwise, fall back to a static DROPBOX_ACCESS_TOKEN (will expire if short-lived).
+ */
+async function getDropboxAccessToken() {
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+  const appKey = process.env.DROPBOX_APP_KEY;
+  const appSecret = process.env.DROPBOX_APP_SECRET;
+  const staticToken = process.env.DROPBOX_ACCESS_TOKEN;
+
+  if (refreshToken && appKey && appSecret) {
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+
+    const basicAuth = Buffer.from(`${appKey}:${appSecret}`).toString('base64');
+
+    const res = await fetch('https://api.dropbox.com/oauth2/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Failed to refresh Dropbox access token: ${res.status} ${errText}`);
+    }
+
+    const json = await res.json();
+    if (!json.access_token) {
+      throw new Error('Failed to obtain Dropbox access token from refresh token');
+    }
+    return json.access_token;
+  }
+
+  if (!staticToken) {
+    throw new Error('DROPBOX_ACCESS_TOKEN is not set, and no refresh token provided.');
+  }
+
+  return staticToken;
 }

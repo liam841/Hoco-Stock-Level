@@ -311,7 +311,7 @@
 <body>
     <div class="container">
         <h1>Hoco Stock Level CSV Converter</h1>
-        <p class="subtitle">Will Automatically Convert and Upload to Dropbox<br><small style="font-size: 0.8125em; color: #718096;">Files are processed and uploaded automatically. No data is displayed.</small></p>
+        <p class="subtitle">Will Automatically Convert and Upload to FileZilla Server<br><small style="font-size: 0.8125em; color: #718096;">Files are processed and uploaded automatically. No data is displayed.</small></p>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-text">Click to upload or drag and drop</div>
@@ -348,12 +348,8 @@
         // Configuration: Set your backend API endpoint here
         // This should point to your serverless function (Netlify, Vercel, etc.)
         // SECURITY NOTE: This is a public value (API endpoint URL). 
-        // Actual Dropbox tokens are stored securely in backend environment variables.
-        // Examples:
-        //   Netlify: '/.netlify/functions/upload-dropbox'
-        //   Vercel: '/api/upload-dropbox'
-        //   Custom: 'https://your-api-domain.com/upload'
-        const DROPBOX_UPLOAD_API = '/.netlify/functions/upload-dropbox'; // Netlify Functions endpoint
+        // FTP credentials are stored securely in backend environment variables.
+        const UPLOAD_API = '/.netlify/functions/upload-ftp'; // Netlify Functions endpoint
         
         let currentFileContent = null;
         let processedCSV = null;
@@ -427,8 +423,8 @@
                     
                     updateProgress(60, 'Preparing upload...');
                     
-                    // Automatically upload to Dropbox
-                    uploadToDropbox(processedCSV, file.name);
+                    // Automatically upload to FTP server
+                    uploadToFTP(processedCSV, file.name);
                 } catch (error) {
                     uploadProgress.style.display = 'none';
                     showStatus('Error processing file: ' + error.message, 'error');
@@ -457,12 +453,12 @@
             fileInput.value = '';
         }
         
-        async function uploadToDropbox(csvContent, originalFileName) {
+        async function uploadToFTP(csvContent, originalFileName) {
             try {
-                updateProgress(70, 'Uploading to Dropbox...');
+                updateProgress(70, 'Uploading to FTP server...');
                 
-                // Upload to backend API which will handle Dropbox upload
-                const response = await fetch(DROPBOX_UPLOAD_API, {
+                // Upload to backend API which will handle FTP/SFTP upload
+                const response = await fetch(UPLOAD_API, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
