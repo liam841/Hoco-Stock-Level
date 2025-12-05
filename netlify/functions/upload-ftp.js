@@ -70,6 +70,8 @@ exports.handler = async (event) => {
     // Auto-detect protocol based on port: 21 = FTP, 22 = SFTP
     const portNum = Number(ftpPort);
     const ftpProtocol = process.env.FTP_PROTOCOL || (portNum === 22 ? 'sftp' : 'ftp');
+    // FTPS support: enable TLS/SSL for FTP connections (FTPS)
+    const ftpSecure = process.env.FTP_SECURE === 'true' || process.env.FTP_SECURE === '1';
 
     if (!ftpHost || !ftpUser || !ftpPassword) {
       throw new Error('FTP configuration incomplete. Check FTP_HOST, FTP_USER, and FTP_PASSWORD environment variables.');
@@ -86,6 +88,7 @@ exports.handler = async (event) => {
       username: ftpUser,
       password: ftpPassword,
       protocol: ftpProtocol,
+      secure: ftpSecure,
       remotePath: remoteFilePath,
       fileContent: csvContent,
     });
@@ -134,7 +137,7 @@ exports.handler = async (event) => {
 /**
  * Upload file to FTP/SFTP server
  */
-async function uploadToFTP({ host, port, username, password, protocol, remotePath, fileContent }) {
+async function uploadToFTP({ host, port, username, password, protocol, secure, remotePath, fileContent }) {
   if (protocol === 'sftp') {
     // Use SFTP (more secure)
     if (!Client) {
@@ -208,6 +211,10 @@ async function uploadToFTP({ host, port, username, password, protocol, remotePat
         port,
         user: username,
         password,
+        secure: secure, // Enable explicit TLS/SSL (FTPS) - required for "AUTH TLS"
+        secureOptions: secure ? {
+          rejectUnauthorized: false // Allow self-signed certificates
+        } : undefined
       });
 
       // Ensure remote directory exists
