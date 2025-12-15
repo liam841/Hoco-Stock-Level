@@ -319,7 +319,7 @@ async function sendSlackNotification({ fileName, remotePath }) {
     return;
   }
 
-  const text = `Hoco Parts Stock Level uploaded.\nFile: ${fileName}\nDestination: ${remotePath}\nTime: ${new Date().toISOString()}`;
+  const text = `Hoco Parts Stock Level uploaded.\nTime: ${new Date().toISOString()}`;
   const payload = {
     text,
     ...(channel ? { channel } : {}),
