@@ -103,6 +103,16 @@ exports.handler = async (event) => {
       console.error('Failed to send notification email:', notifyError);
     }
 
+    // Try to send Slack notification (do not fail the upload if Slack fails)
+    try {
+      await sendSlackNotification({
+        fileName,
+        remotePath: remoteFilePath,
+      });
+    } catch (slackError) {
+      console.error('Failed to send Slack notification:', slackError);
+    }
+
     return {
       statusCode: 200,
       headers: {
@@ -272,11 +282,10 @@ async function sendNotificationEmail({ fileName, remotePath }) {
     return;
   }
 
-  const subject = 'New TestStock CSV uploaded';
+  const subject = 'Hoco Parts Stock Level uploaded';
   const text =
-    `A new TestStock CSV file has been uploaded.\n\n` +
-    `File name: ${fileName}\n` +
-    `Remote path: ${remotePath}\n` +
+    `Hoco Parts Stock Level has been uploaded.\n` +
+    `Linnworks will upload this file at 8:30am every day.\n` +
     `Time: ${new Date().toISOString()}\n`;
 
   const transporter = nodemailer.createTransport({
@@ -295,5 +304,37 @@ async function sendNotificationEmail({ fileName, remotePath }) {
     subject,
     text,
   });
+}
+
+/**
+ * Send Slack notification when a file is uploaded.
+ */
+async function sendSlackNotification({ fileName, remotePath }) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  const channel = process.env.SLACK_CHANNEL;
+  const username = process.env.SLACK_USERNAME || 'Hoco Upload Bot';
+
+  if (!webhookUrl) {
+    console.warn('Slack notification not configured (missing SLACK_WEBHOOK_URL).');
+    return;
+  }
+
+  const text = `Hoco Parts Stock Level uploaded.\nFile: ${fileName}\nDestination: ${remotePath}\nTime: ${new Date().toISOString()}`;
+  const payload = {
+    text,
+    ...(channel ? { channel } : {}),
+    ...(username ? { username } : {}),
+  };
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Slack webhook responded ${response.status}: ${body}`);
+  }
 }
 
