@@ -1,13 +1,12 @@
 // Netlify Function: upload-ftp.js
 // Handles upload of processed CSV to FileZilla Server via FTP/SFTP
 
-let Client, nodemailer;
+let Client;
 try {
   Client = require('ssh2-sftp-client');
-  nodemailer = require('nodemailer');
 } catch (requireError) {
   console.error('Failed to load required modules:', requireError);
-  throw new Error('Missing required dependencies. Please ensure ssh2-sftp-client and nodemailer are installed.');
+  throw new Error('Missing required dependencies. Please ensure ssh2-sftp-client is installed.');
 }
 
 exports.handler = async (event) => {
@@ -93,16 +92,6 @@ exports.handler = async (event) => {
       fileContent: csvContent,
     });
 
-    // Try to send notification email (do not fail the upload if email fails)
-    try {
-      await sendNotificationEmail({
-        fileName,
-        remotePath: remoteFilePath,
-      });
-    } catch (notifyError) {
-      console.error('Failed to send notification email:', notifyError);
-    }
-
     // Try to send Slack notification (do not fail the upload if Slack fails)
     try {
       await sendSlackNotification({
@@ -154,11 +143,7 @@ async function uploadToFTP({ host, port, username, password, protocol, secure, r
       throw new Error('SFTP client library not loaded. Please ensure ssh2-sftp-client is installed.');
     }
     const sftp = new Client();
-    
-    if (!sftp) {
-      throw new Error('Failed to initialize SFTP client.');
-    }
-    
+
     try {
       await sftp.connect({
         host,
@@ -172,138 +157,55 @@ async function uploadToFTP({ host, port, username, password, protocol, secure, r
       if (lastSlashIndex > 0) {
         const remoteDir = remotePath.substring(0, lastSlashIndex);
         try {
-          await sftp.mkdir(remoteDir, true); // true = recursive
+          await sftp.mkdir(remoteDir, true);
         } catch (mkdirError) {
-          // Directory might already exist, that's okay
           if (!mkdirError.message || !mkdirError.message.includes('already exists')) {
             throw mkdirError;
           }
         }
       }
 
-      // Upload file (will overwrite if exists)
       const fileBuffer = Buffer.from(fileContent, 'utf8');
       await sftp.put(fileBuffer, remotePath);
-      
       await sftp.end();
     } catch (error) {
-      // Try to close connection, but don't fail if it doesn't work
       try {
-        if (sftp && typeof sftp.end === 'function') {
-          await sftp.end();
-        }
-      } catch (closeError) {
-        // Ignore close errors
-      }
+        await sftp.end();
+      } catch {}
       throw error;
     }
   } else {
-    // Use FTP (less secure, but supported)
-    let FTPClient;
-    try {
-      const ftpModule = require('basic-ftp');
-      FTPClient = ftpModule.Client;
-      if (!FTPClient) {
-        throw new Error('basic-ftp Client not found in module');
-      }
-    } catch (requireError) {
-      throw new Error(`Failed to load FTP library: ${requireError.message}`);
-    }
-    
+    // Use FTP
+    const { Client: FTPClient } = require('basic-ftp');
     const ftpClient = new FTPClient();
-    if (!ftpClient) {
-      throw new Error('Failed to initialize FTP client.');
-    }
-    
+
     try {
       await ftpClient.access({
         host,
         port,
         user: username,
         password,
-        secure: secure, // Enable explicit TLS/SSL (FTPS) - required for "AUTH TLS"
-        secureOptions: secure ? {
-          rejectUnauthorized: false // Allow self-signed certificates
-        } : undefined
+        secure,
+        secureOptions: secure ? { rejectUnauthorized: false } : undefined,
       });
 
-      // Ensure remote directory exists
       const lastSlashIndex = remotePath.lastIndexOf('/');
       if (lastSlashIndex > 0) {
         const remoteDir = remotePath.substring(0, lastSlashIndex);
-        try {
-          await ftpClient.ensureDir(remoteDir);
-        } catch (mkdirError) {
-          // Directory might already exist, that's okay
-          if (!mkdirError.message || !mkdirError.message.includes('already exists')) {
-            throw mkdirError;
-          }
-        }
+        await ftpClient.ensureDir(remoteDir);
       }
 
-      // Upload file (will overwrite if exists)
       const fileBuffer = Buffer.from(fileContent, 'utf8');
       const { Readable } = require('stream');
-      const stream = Readable.from(fileBuffer);
-      await ftpClient.uploadFrom(stream, remotePath);
-      
+      await ftpClient.uploadFrom(Readable.from(fileBuffer), remotePath);
       ftpClient.close();
     } catch (error) {
-      // Try to close connection, but don't fail if it doesn't work
       try {
-        if (ftpClient && typeof ftpClient.close === 'function') {
-          ftpClient.close();
-        }
-      } catch (closeError) {
-        // Ignore close errors
-      }
+        ftpClient.close();
+      } catch {}
       throw error;
     }
   }
-}
-
-/**
- * Send notification email when a file is uploaded.
- *
- * This uses Gmail SMTP via Nodemailer.
- */
-async function sendNotificationEmail({ fileName, remotePath }) {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const to = process.env.EMAIL_TO;
-  const from = process.env.EMAIL_FROM || user;
-
-  if (!host || !port || !user || !pass || !to || !from) {
-    console.warn(
-      'Email notification not configured (missing SMTP_* or EMAIL_* env vars).',
-    );
-    return;
-  }
-
-  const subject = 'Hoco Parts Stock Level uploaded';
-  const text =
-    `Hoco Parts Stock Level has been uploaded.\n` +
-    `Linnworks will upload this file at 8:30am every day.\n` +
-    `Time: ${new Date().toISOString()}\n`;
-
-  const transporter = nodemailer.createTransport({
-    host,
-    port: Number(port),
-    secure: Number(port) === 465,
-    auth: {
-      user,
-      pass,
-    },
-  });
-
-  await transporter.sendMail({
-    from,
-    to,
-    subject,
-    text,
-  });
 }
 
 /**
@@ -319,9 +221,8 @@ async function sendSlackNotification({ fileName, remotePath }) {
     return;
   }
 
-  const text = `Hoco Parts Stock Level uploaded.`;
   const payload = {
-    text,
+    text: `Hoco Parts Stock Level uploaded.`,
     ...(channel ? { channel } : {}),
     ...(username ? { username } : {}),
   };
@@ -337,4 +238,3 @@ async function sendSlackNotification({ fileName, remotePath }) {
     throw new Error(`Slack webhook responded ${response.status}: ${body}`);
   }
 }
-
